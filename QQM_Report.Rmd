@@ -1,0 +1,1008 @@
+---
+title: Developing a new scale to measure Domain-Specific Self-esteem using Exploratory Factor Analysis
+author:
+date: 
+output: 
+  html_document:
+    css: styles.css
+bibliography: QQM.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+library(psych)
+library(GPArotation)
+```
+
+```{r load data, include = FALSE}
+cand_no_alt <- 218340 # enter your candidate number
+source("https://raw.githubusercontent.com/vlad-costin/qqm/main/rename_n_sample_alt.R")
+report_data <- data_alt
+```
+
+```{r data inspection/cleaning, include = FALSE}
+# check data classes of variables in dataset (all should be numeric)
+sapply(report_data, class)
+##### all variables are numeric
+
+# initial n
+nrow(report_data)
+##### initial n = 675
+
+# exclude NAs    
+report_data <- na.omit(report_data) 
+##### excluded 1 response
+
+# exclude inappropriate age responses
+report_data <- report_data %>% 
+  dplyr::filter(
+    ., 
+    AGE >= 18 & AGE <= 120
+  ) 
+##### excluded 1 response
+
+# exclude QQM students
+report_data <- report_data %>% 
+  dplyr::filter(
+    ., 
+    QQM == 2
+  )
+##### excluded 31 responses
+
+# total n excluded after data cleaning
+675 - nrow(report_data)
+##### total n excluded = 33
+```
+
+```{r pre-analysis, include = FALSE}
+# Polychoric correlation
+report_poly_before <- report_data %>% 
+  dplyr::select(., DSSE.1:DSSE.25) %>% 
+  psych::polychoric(.,)
+
+# DSSE correlation matrix
+psych::cor.plot(
+  report_poly_before$rho,
+  cex = .75,
+  upper = FALSE
+)
+##### DSSE 3, 14 & 23 should be removed
+report_poly_after <- report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.14, DSSE.23, SISE, OPEN)) %>% 
+  psych::polychoric(.,)
+
+# correlation matrix after exclusions
+psych::cor.plot(
+  report_poly_after$rho,
+  cex = .75,
+  upper = FALSE
+)
+##### all correlations are fine
+
+# Bartlett’s test of sphericity 
+psych::cortest.bartlett(
+  report_poly_after$rho, 
+  n = nrow(report_data)
+)
+##### highly significant: x^2(231) = 5052.349 p < .05
+
+# Kaiser-Meyer-Olkin test
+psych::KMO(report_poly_after$rho)
+##### Overall MSA = 0.84
+##### MSA range = .62-.92
+```
+
+```{r parallel analysis, include = FALSE}
+# parallel analysis scree plot
+report_para <- psych::fa.parallel(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  fa = "fa"
+)
+##### parallel analysis suggests the number of factors is: 7
+```
+
+```{r factor analysis, include = FALSE}
+# initial factor analysis
+report_fa <- psych::fa(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  nfactor = report_para$nfact, 
+  scores = "tenBerge"
+)
+
+parameters::model_parameters(
+  report_fa,
+  sort = TRUE,
+  threshold = .3
+)
+##### 2 factors do not load significantly
+##### Reduce factor size
+
+# first reduce factor size to 6 per recommendation
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 6, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### 1 factor remains with less than 3 loadings
+##### item 7 is insignificant, remove this first 
+
+# exclude item 7
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 6, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### 1 factor remains with less than 3 loadings
+
+# reduce factor size to 5
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### DSSE 15 and 16 now have no significant loadings
+
+# Exclude DSSE 15
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.15, DSSE.23, SISE, OPEN)),
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### DSSE 16 still has no significant loadings
+
+# Exclude DSSE 16
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### All factors have at least 3 significant item loadings. 
+##### 4 Items cross-load. Items will be assigned according to their primary loadings and subjective evaluation of thematic coherence.
+##### Item 11 has cross-loadings which are very similar and below practical significance, this item will be removed.
+
+##### Exclude item 11
+report_fa_final <- psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### All factors have at least 3 significant item loadings. 
+##### 3 items cross-load. Items will be assigned according to their primary loadings and subjective evaluation of thematic coherence.
+##### model fit criteria marginally not met, increases risk of type 1 & 2 error
+
+```
+
+#### **Participants**
+
+Participants were recruited via social networks of University of Sussex students on the Quantitative and Qualitative Methods (QQM) module. 675 initial responses were made, with 642 remaining after exclusions of QQM students (n = 31), under 18 year-old respondents (n = 1) and responses with missing data (n = 1).
+
+Tables 1, 2 and 3 outline sample descriptive statistics.
+
+```{r table 1 overall descriptive statistics, echo = FALSE}
+report_data %>% 
+  dplyr::summarise(
+    dplyr::n(),
+    mean(AGE),
+    sd(AGE),
+    min(AGE),
+    quantile(AGE, .25),
+    median(AGE),
+    quantile(AGE, .75),
+    max(AGE)
+  ) %>% 
+  knitr::kable(
+    caption = "Table 1
+    \n *Participant descriptive statistics*",
+    col.names = c(
+      "***N***", 
+      "Mean Age", 
+      "SD Age",
+      "Min Age",
+      "1st Q",
+      "Median Age",
+      "3rd Q",
+      "Max Age"
+      ),
+    align = "cccccccc",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  ) %>% 
+  footnote(
+    general = "Data presented are after response exclusions. Age is measured in years.",
+    general_title = "*Note.*",
+    footnote_as_chunk = TRUE
+  )
+```
+
+```{r table 2 descriptive statistics by gender, echo = FALSE}
+report_data %>%
+  dplyr::mutate(
+    .,
+    GENDER = dplyr::recode(
+      GENDER,
+      '1' = "Male",
+      '2' = "Female",
+      '3' = "Other",
+      '4' = "Prefer not to say"
+    )
+  ) %>%
+  dplyr::group_by(GENDER) %>% 
+  dplyr::summarise(
+    dplyr::n(),
+    dplyr::n()/nrow(report_data)*100,
+    mean(AGE),
+    sd(AGE),
+    min(AGE),
+    quantile(AGE, .25),
+    median(AGE),
+    round(quantile(AGE, .75), 0),
+    max(AGE),
+  ) %>% 
+  knitr::kable(
+    .,
+    caption = "Table 2
+    \n *Participant descriptive statistics by gender*",
+    col.names = c(
+      "Gender", 
+      "n", 
+      "% of total", 
+      "Mean Age", 
+      "SD Age", 
+      "Min Age",
+      "1st Q",
+      "Median",
+      "3rd Q",
+      "Max Age"
+      ),
+    align = "lccccccccc",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman",
+  ) %>% 
+  footnote(
+    general = "Data presented are after response exclusions. Age is measured in years.",
+    general_title = "*Note.*",
+    footnote_as_chunk = TRUE
+  )
+```
+
+```{r table 3 employment descriptive statistics by gender, echo = FALSE}
+report_data %>%
+  dplyr::mutate(
+    .,
+    GENDER = dplyr::recode(
+      GENDER,
+      '1' = "Male",
+      '2' = "Female",
+      '3' = "Other",
+      '4' = "Prefer not to say"
+    )
+  ) %>%
+  dplyr::group_by(GENDER) %>% 
+  dplyr::summarise(
+    sum(OCCUPATION == 1),
+    sum(OCCUPATION == 2),
+    sum(OCCUPATION == 3),
+    sum(OCCUPATION == 4),
+    sum(OCCUPATION == 5),
+    sum(OCCUPATION == 6)
+  ) %>% 
+  knitr::kable(
+    .,
+    caption = "Table 3
+    \n *Participant employment status by gender*",
+    col.names = c(
+      "Gender", 
+      "Current student^a^", 
+      "Employed", 
+      "Unemployed", 
+      "Part-time 
+      \n employment", 
+      "Searching 
+      \n for employment", 
+      "Retired"
+      ),
+    align = "lcccccc"
+    ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  ) %>%
+  footnote(
+    general = "Data presented are after response exclusions.", 
+    general_title = "*Note.*",
+    alphabet = "*'Current student'* refers to participants' status as a university student in general, rather than specifically a student on the 'Quantitative and Qualitative Methods' module at the University of Sussex as these individuals were already excluded from the analysis.", 
+    footnote_as_chunk = TRUE
+  )
+```
+
+#### **Materials**
+
+The questionnaire consisted of demographic items (Tables 1, 2 and 3). Following this were 25 items assessing participants’ self-esteem on specific domains (DSSE), concluding with 1 item measuring global self-esteem (GSE) and 1 measuring openness to experience (OTE). 
+
+DSSE items aimed to capture self-evaluations on a number of domains, such as academic competence (e.g. item 17: "When I succeed on an assessment, I feel a sense of self-pride.") and physical health (e.g. item 25 "Eating unhealthy foods makes me feel bad about myself"). Despite drawing influence from them, the present DSSE scale also aimed to expand on similar pre-existing scales [e.g. Contingencies of Self-worth Scale, Crocker, Luhtanen, Cooper & Bouvrette, -@crocker_contingencies_2003; Body-Self Relations Questionnaire, Brown, Cash & Mikulka, -@brown_attitudinal_1990] by including items related to social media (e.g. item 5: "Whenever my follower count goes down, my self-esteem suffers"), increasingly relevant to students and non-students alike in contemporary society [Midgley, Thai, Lockwood, Kovacheff & Page-Gould, -@midgley_when_2021; @statista_social_2022], potentially enhancing ecological validity of results by asking questions with more relevance to the sample [e.g. @szczygiel_not_2021]. DSSE items were rated on a 5-point Likert scale assessing participant agreement, where 1 = "Strongly disagree" and 5 = "Strongly agree". To reduce acquiescent responding [Winkler, Kanouse & Ware, -@winkler_controlling_1982], item phrasing was balanced such that 11 items were phrased positively (e.g. item 17), 11 negatively phrased (e.g. item 5), and 3 phrased neutrally (e.g. item 2: "My self-esteem is influenced by how well I get along with others"). 
+
+GSE and OTE items were derived from Robins, Hendin and Trzesniewski [-@robins_measuring_2001] and Gosling, Rentfrow and Swann [-@gosling_very_2003], respectively. These similarly used a 5-point Likert scale, however participants instead rated to what extent they felt statements described them (1 = "Does not describe me" and 5 = "Describes me extremely well"). GSE and OTE items were positively phrased. Furthermore, whilst the Likert scale for DSSE items was balanced around a neutral midpoint (3 = "Neither agree nor disagree"), GSE and OTE scales represented a gradient of positive identification with the statement, with no neutral midpoint (3 = "Describes me moderately well"). Despite this difference, the use of midpoints in each scale also contributes to reducing acquiescent responding [Tourangeau et al., 2000, cited in Podsakoff, MacKenzie, Lee & Podsakoff, -@podsakoff_common_2003].
+
+#### **Procedure**
+
+Participants were provided a link via social media platforms to the questionnaire on Qualtrics software [@qualtrics_provo_ut_notitle_2022]. Pre-completion, participants were informed they were taking part in a short 10-minute study aiming to develop a questionnaire that captures subjective self-evaluations of different life-aspects. Participants consented, having their right to anonymity, withdrawal, confidentiality affirmed and were told their data would be analysed and potentially published. Post-completion, participants were provided an opportunity to withdraw and debriefed on research aims.
+
+#### **Results**
+
+To improve internal validity [Nichols & Maner, -@nichols_good-subject_2008], participants on the QQM module (n = 31) were excluded for being aware of research aims. Individuals under 18 years old constitute a 'vulnerable population' for whom additional briefing and approval from guardians is necessary for informed consent [British Psychological Society, -@british_psychological_society_code_2021] - since neither were assured in this study, under-18s (n = 1)were excluded from analysis. Responses with missing data (n = 1) were also excluded.
+
+Exclusion in all cases involved listwise deletion (LD) of responses. Whilst this can reduce statistical power in analysis [@myers_goodbye_2011], it was deemed appropriate as the number of excluded cases (n = 33) was relatively small compared to the remaining sample size (n = 642), making loss of statistical power minimal whilst also improving validity of results [@kang_prevention_2013]. Alternative methods such as multiple imputation could have been used with missing data [@rubin_multiple_2004]. This was deemed unnecessary as methods like multiple imputation do not impact statistical power significantly differently from LD when dealing with item-level missing data [@parent_handling_2013], as was the case in this sample where the excluded case was missing data on just one item (QQM).
+
+Inter-item correlations within a scale measuring a construct should at least exceed an “exemplary” value of |.3| [Robinson, Shaver & Wrightsman, -@robinson_measures_1991, p. 13]. Furthermore, inter-item correlations above |.85| indicate that the two items do not measure substantially different aspects of the construct and thus largely equivalent [Paulsen & BrckaLorenz, -@paulsen_internal_2017]. Therefore, all items that either: have no inter-item correlations above |.3| or any inter-item correlations above |.85| were excluded from the analysis. These criteria excluded items 3, 14 and 23. 
+
+Bartlett's test of sphericity was significant, ($x^{2}$(231) = 5052.349 p < .05) demonstrating that the correlation matrix of this data is significantly different from an identity matrix. Furthermore, a Kaiser-Meyer-Olkin test was used to produce a measure of sampling adequacy (MSA). Overall MSA was .84, with a range of .62-.92, indicating an "meritorious" overall MSA, and ranging from "mediocre" to "marvellous" [Kaiser & Rice, -@kaiser_little_1974, p. 112]. A minimum threshold of .5 for KMO values [Guttman, 1953, cited in Kaiser & Rice, -@kaiser_little_1974] was exceeded in all cases, suggesting all included variables are suitable for Exploratory factor analysis (EFA).
+
+EFA requires predetermination of factor size [Fabrigar, Wegener, MacCallum & Strahan, -@fabrigar_evaluating_1999]. To achieve this, a scree plot [@cattell_scree_1966] can be used. However, determining factor size from a scree plot alone is inherently subjective [Courtney & Gordon, -@courtney_determining_2013]. Pairing it (Figure 1) with a parallel analysis (PA) [@horn_rationale_1965] reduces subjectivity. PA compares eigenvalues of each factor - "the amount of variance of the variables accounted for by that factor" [Norris & Lecavalier, -@norris_evaluating_2010, p. 9] - with random eigenvalues. Identifying factor eigenvalues greater than 1 [@kaiser_application_1960] could be the criteria used to determine factor extraction, however this can (over)underestimate the number of factors [Zwick & Velicer, -@zwick_comparison_1986]. In PA, factor and random eigenvalues are ordered and compared. The number of factor eigenvalues greater than random eigenvalues determines the suggested factor size. As seen in Figure 1, 7 factors were extracted.
+
+```{r factor extraction, echo = FALSE, results = FALSE}
+psych::fa.parallel(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  fa = "fa",
+  main = "Figure 1: Parallel analysis scree plot"
+)
+```
+
+EFA used a minimum residuals (minres) method [@comrey_minimum_1962], as with PA. Factor rotation method used was oblique. Oblique rotations do not force factors to correlate as orthogonal rotations would, making the former better suited for dealing with interrelated behaviours, like DSSE self-assessments, which are already expected to correlate [@osborne_what_2015].
+
+EFA can be iterative, involving reanalysis after exclusions of items and reduction of factor size. Furthermore, factor clustering must be thematically coherent. Such reanalysis and thematic considerations were necessary. Exclusion criteria are:
+
+1. **Significance threshold.** Whilst there is no decisive view of what the minimum threshold for factor loading should be [@peterson_meta-analysis_2000], social science favours a |.3| threshold for sample sizes greater than 350 [@hair_multivariate_2019], where coefficients near |.5| are considered "practically significant". This EFA uses this |.3| threshold to determine significance. For items which do not load significantly on any factor, it is suggested to remove items individually, assessing the factor structure after each until a stable factor structure is found (where all items have at least 1 significant factor loading) [@samuels_advice_2017]. This excluded items 7, 15, 16 and 23.
+
+2. **Insignificant factors.** Factors with less than 3 significant item loadings are likely weak [@samuels_advice_2017]. As such, it is recommended [@watkins_exploratory_2018] to sequentially reduce factor size until a stable factor structure is found (all factors have at least 3 significant factor loadings). This reduced the factor size from 7 to 5.
+
+3. **Thematic consistency** Whilst the emergent factor structure may be sound, items can cluster into a factor without actually fitting the theme of that factor. Furthermore, items may significantly cross-load onto multiple items. Determining thematic consistency within factors is inherently subjective, however as the goal with this analysis is to discover coherent DSSE scale factors, some adjustments were made. Items 10, 13 and 25 cross-loaded and thus their primary loading was used to assign them to a factor. Item 11 also cross-loaded but coefficients were very similar (.37 & .39) nor practically significant, thus it was excluded entirely.
+
+```{r factor loading table, echo = FALSE}
+options(knitr.kable.NA = '--')
+knitr::kable(
+  report_fa_final,
+  caption = "Figure 2
+  \n *Factor loadings after reanalysis exclusions*",
+  align = "lccccccccc",
+  digits = 2
+) %>% 
+kable_classic(
+  html_font = "Times New Roman"
+)
+```
+
+EFA returned 5 factors accounting for 52% of overall variance. Oblique rotation was appropriate given all factor correlations were non-zero. 
+
+Factors were as follows: MR1 = Appearance self esteem - including 5 items (e.g. item 9 "I try to avoid seeing my body in the mirror"); MR2 = Academic self-esteem - including 4 items (e.g. Item 17 "When I succeed on an assessment, I feel a sense of self-pride."); MR3 = Social media self-esteem - including 3 items (e.g. Item 4 "My sense of self-worth increases when I get positive engagement on my social media"); MR4 = Health-based self-esteem - including 3 items (e.g. Item 22 "My self-esteem goes up when I am healthy"); MR5 = Social acceptance self-esteem - including 3 items (e.g. Item 1 "Knowing someone liked me would make me feel good about myself").
+
+Hu and Bentler [-@hu_cutoff_1999] suggest model fit cut-off values of either a TLI > .96 & SRMR < .06 or RMSEA < .05 and SRMR < .09, these cut-offs are not absolute. Likelihood Chi square was highly significant $x^{2}$ = 209.07, p < .001, likely due to the large sample size (n = 642). Tucker Lewis index was .929, SRMR was .02, and RMSEA was .054, 90% CI [.045, .063]. Evidently, this indicates poor model fit. Such a model likely has enhanced type I and II error rates [Hu & Bentler, -@hu_cutoff_1999].
+
+```{r reliability analysis, include = FALSE}
+psych::omega(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)),
+  nfactors = 5,
+  fm = "minres",
+  rotate = "oblimin",
+  digits = 5,
+  poly = TRUE
+) 
+```
+
+
+```{r relability analysis plot, echo = FALSE, results = FALSE}
+psych::omega(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)),
+  nfactors = 5,
+  fm = "minres",
+  rotate = "oblimin",
+  digits = 5,
+  poly = TRUE,
+  title = "Figure 3: Omega coefficients"
+) 
+```
+
+Reliability analysis using McDonald's $\omega$ [@mcdonald_test_1999] reported three items (9, 22 & 24) with low general factor loadings, indicating a common factor model is inappropriate [Field, -@field_discovering_2022]. An $\omega$ hierarchical of 0.58 was found, where items explained 35% of the variance in the general common factor, considered to be fairly low. An overall $\omega$ total of 0.9 was observed, indicating the overall scale is highly reliable. Model fit indexes ($x^{2}$ = 2130.86, p < 0; RMSEA = .152, 10% CI [.146-.158]) indicated that the 5-factor model is a better fit than a single-factor model. $\omega$ totals for each sub-scale were: MR1 = .84, MR2 = .79, MR3 = .74, MR4 = .8, MR5 = .67. All sub-scales are reliable, with MR5 being the least reliable.
+
+Convergent validity was tested by computing composite scores for each factor and correlating them with the GSE item scores. Divergent validity was similarly tested, but instead used OTE scores. 
+
+```{r convergent and divergent validities, echo = FALSE}
+# composite scores
+report_comp <- report_data %>% 
+  dplyr::rowwise() %>% 
+  dplyr::summarise(
+    MR1_comp = mean(c(DSSE.9, DSSE.10, DSSE.12, DSSE.13, DSSE.18)),
+    MR2_comp = mean(c(DSSE.17, DSSE.19, DSSE.20, DSSE.21)),
+    MR3_comp = mean(c(DSSE.4, DSSE.5, DSSE.8)),
+    MR4_comp = mean(c(DSSE.22, DSSE.24, DSSE.25)),
+    MR5_comp = mean(c(DSSE.1, DSSE.2, DSSE.6)),
+    SISE = mean(SISE),
+    OPEN = mean(OPEN)
+  )
+
+report_comp %>% 
+  dplyr::select(., MR1_comp, MR2_comp, MR3_comp, MR4_comp, MR5_comp, SISE, OPEN) %>% 
+  correlation::correlation() %>% 
+  summary() %>% 
+  knitr::kable(
+    caption = "Figure 4
+    \n *Correlation matrix for factor composites*",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  )
+```
+
+SISE and OPEN both negatively correlate with MR1, MR2, MR3 and MR5, whilst not correlating with MR4. This indicates poor convergent validity for this scale as factors composites are expected to correlate positively with GSE as it is a related construct. Poor discriminant validity was also observed for all but one factor (MR4), where factor composites are expected to not correlate with OTE as it is an unrelated construct.
+
+#### **Discussion**
+
+Overall, inter-item correlations revealed 3 items (3, 14 & 23) did not significantly correlate with any others, whilst all others were satisfactory. EFA revealed 5 coherent factors, accounting for 52% of overall variance. However, model fit indexes were slightly below recommended thresholds, suggesting type I and II error rates are enhanced in this model. Despite reliable omega values for the scale and sub-scales, some items had no significant general factor loadings and thus a common factor model is inappropriate here. Convergent and divergent validity was poor for all factors, except factor MR4 which had good discriminant validity. 
+
+These issues with the analysis suggest the items included and the scale itself poorly reflect the target construct. Future research could benefit from exploring alternative DSSE items in conjunction with highly performing items from this analysis (e.g. item 19) in order to produce a scale which more accurately reflects underlying DSSE constructs, providing greater practical utility than this scale.
+
+#### **References**
+
+<div id="refs"></div>
+
+#### **Appendix**
+
+```{r appendix_code, evaluate = FALSE, echo = TRUE}
+############### YAML header ###############
+
+# title: 
+# author:
+# date: 
+# output: 
+#   html_document:
+#     css: styles.css
+# bibliography: QQM.bib
+# csl: apa.csl
+
+############### Set-up ###############
+  
+# used {r setup, include=FALSE} as chunk header
+
+# knitr::opts_chunk$set(echo = TRUE)
+# library(tidyverse)
+# library(kableExtra)
+# library(psych)
+# library(GPArotation)
+
+############### load data ###############
+
+# used {r load data, include = FALSE} as chunk header 
+
+# cand_no_alt <- 218340 # enter your candidate number
+# source("https://raw.githubusercontent.com/vlad-costin/qqm/main/rename_n_sample_alt.R")
+# report_data <- data_alt
+
+############### data inspection/cleaning ###############
+
+# used {r data inspection/cleaning, include = FALSE} as chunk header
+
+# check data classes of variables in dataset (all should be numeric)
+sapply(report_data, class)
+##### all variables are numeric
+
+# initial n
+nrow(report_data)
+##### initial n = 675
+
+# exclude NAs    
+report_data <- na.omit(report_data) 
+##### excluded 1 response
+
+# exclude inappropriate age responses
+report_data <- report_data %>% 
+  dplyr::filter(
+    ., 
+    AGE >= 18 & AGE <= 120
+  ) 
+##### excluded 1 response
+
+# exclude QQM students
+report_data <- report_data %>% 
+  dplyr::filter(
+    ., 
+    QQM == 2
+  )
+##### excluded 31 responses
+
+# total n excluded after data cleaning
+675 - nrow(report_data)
+##### total n excluded = 33
+
+############### Pre-analysis ###############
+
+# used {r pre-analysis, include = FALSE} as chunk header
+
+# Polychoric correlation
+report_poly_before <- report_data %>% 
+  dplyr::select(., DSSE.1:DSSE.25) %>% 
+  psych::polychoric(.,)
+
+# DSSE correlation matrix
+psych::cor.plot(
+  report_poly_before$rho,
+  cex = .75,
+  upper = FALSE
+)
+##### DSSE 3, 14 & 23 should be removed
+report_poly_after <- report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.14, DSSE.23, SISE, OPEN)) %>% 
+  psych::polychoric(.,)
+
+# correlation matrix after exclusions
+psych::cor.plot(
+  report_poly_after$rho,
+  cex = .75,
+  upper = FALSE
+)
+##### all correlations are fine
+
+# Bartlett’s test of sphericity 
+psych::cortest.bartlett(
+  report_poly_after$rho, 
+  n = nrow(report_data)
+)
+##### highly significant: x^2(231) = 5052.349 p < .05
+
+# Kaiser-Meyer-Olkin test
+psych::KMO(report_poly_after$rho)
+##### Overall MSA = 0.84
+##### MSA range = .62-.92
+
+############### Parallel analysis ###############
+
+# used {r parallel analysis, include = FALSE} as chunk header
+
+# parallel analysis scree plot
+report_para <- psych::fa.parallel(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  fa = "fa"
+)
+##### parallel analysis suggests the number of factors is: 7
+
+############### Factor analysis ###############
+
+# used {r factor analysis, include = FALSE} as chunk header
+
+# initial factor analysis
+report_fa <- psych::fa(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  nfactor = report_para$nfact, 
+  scores = "tenBerge"
+)
+
+parameters::model_parameters(
+  report_fa,
+  sort = TRUE,
+  threshold = .3
+)
+##### 2 factors do not load significantly
+##### Reduce factor size
+
+# first reduce factor size to 6 per recommendation
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 6, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### 1 factor remains with less than 3 loadings
+##### item 7 is insignificant, remove this first 
+
+# exclude item 7
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 6, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### 1 factor remains with less than 3 loadings
+
+# reduce factor size to 5
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### DSSE 15 and 16 now have no significant loadings
+
+# Exclude DSSE 15
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.15, DSSE.23, SISE, OPEN)),
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### DSSE 16 still has no significant loadings
+
+# Exclude DSSE 16
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### All factors have at least 3 significant item loadings. 
+##### 4 Items cross-load. Items will be assigned according to their primary loadings and subjective evaluation of thematic coherence.
+##### Item 11 has cross-loadings which are very similar and below practical significance, this item will be removed.
+
+##### Exclude item 11
+report_fa_final <- psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+) %>% 
+  parameters::model_parameters(
+    .,
+    sort = TRUE,
+    threshold = .3)
+##### All factors have at least 3 significant item loadings. 
+##### 3 items cross-load. Items will be assigned according to their primary loadings and subjective evaluation of thematic coherence.
+##### check model fit indexes
+
+psych::fa(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)), 
+  n.obs = nrow(report_data), 
+  nfactor = 5, 
+  scores = "tenBerge",
+  cor = "poly"
+)
+
+##### SRMR = .02
+##### Likelihood Chi Square = 209.07, p < .001
+##### TLI = .929
+##### RMSEA = .054
+##### model fit criteria marginally not met, increases risk of type 1 & 2 error
+
+############### Reliability analysis ###############
+
+psych::omega(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)),
+  nfactors = 5,
+  fm = "minres",
+  rotate = "oblimin",
+  digits = 5,
+  poly = TRUE
+) 
+##### 3 items did not have general factor loadings, common factor model inappropriate
+##### omega h was .58, accounting for 35% variance
+##### omega t overall was .9
+##### MR1 omega 1 = .84, MR2 = .79, MR3 = .74, MR4 = .8, MR5 = .67
+
+############### Table 1 ###############
+
+# used {r table 1 overall descriptive statistics, echo = FALSE} as chunk header
+
+report_data %>% 
+  dplyr::summarise(
+    dplyr::n(),
+    mean(AGE),
+    sd(AGE),
+    min(AGE),
+    quantile(AGE, .25),
+    median(AGE),
+    quantile(AGE, .75),
+    max(AGE)
+  ) %>% 
+  knitr::kable(
+    caption = "Table 1
+    \n *Participant descriptive statistics*",
+    col.names = c(
+      "***N***", 
+      "Mean Age", 
+      "SD Age",
+      "Min Age",
+      "1st Q",
+      "Median Age",
+      "3rd Q",
+      "Max Age"
+      ),
+    align = "cccccccc",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  ) %>% 
+  footnote(
+    general = "Data presented are after response exclusions. Age is measured in years.",
+    general_title = "*Note.*",
+    footnote_as_chunk = TRUE
+  )
+
+############### Table 2 ###############
+
+# used {r table 2 descriptive statistics by gender, echo = FALSE} as chunk header
+
+report_data %>%
+  dplyr::mutate(
+    .,
+    GENDER = dplyr::recode(
+      GENDER,
+      '1' = "Male",
+      '2' = "Female",
+      '3' = "Other",
+      '4' = "Prefer not to say"
+    )
+  ) %>%
+  dplyr::group_by(GENDER) %>% 
+  dplyr::summarise(
+    dplyr::n(),
+    dplyr::n()/nrow(report_data)*100,
+    mean(AGE),
+    sd(AGE),
+    min(AGE),
+    quantile(AGE, .25),
+    median(AGE),
+    round(quantile(AGE, .75), 0),
+    max(AGE),
+  ) %>% 
+  knitr::kable(
+    .,
+    caption = "Table 2
+    \n *Participant descriptive statistics by gender*",
+    col.names = c(
+      "Gender", 
+      "n", 
+      "% of total", 
+      "Mean Age", 
+      "SD Age", 
+      "Min Age",
+      "1st Q",
+      "Median",
+      "3rd Q",
+      "Max Age"
+      ),
+    align = "lccccccccc",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman",
+  ) %>% 
+  footnote(
+    general = "Data presented are after response exclusions. Age is measured in years.",
+    general_title = "*Note.*",
+    footnote_as_chunk = TRUE
+  )
+
+############### Table 3 ###############
+
+# used {r table 3 employment descriptive statistics by gender, echo = FALSE} as chunk header
+
+report_data %>%
+  dplyr::mutate(
+    .,
+    GENDER = dplyr::recode(
+      GENDER,
+      '1' = "Male",
+      '2' = "Female",
+      '3' = "Other",
+      '4' = "Prefer not to say"
+    )
+  ) %>%
+  dplyr::group_by(GENDER) %>% 
+  dplyr::summarise(
+    sum(OCCUPATION == 1),
+    sum(OCCUPATION == 2),
+    sum(OCCUPATION == 3),
+    sum(OCCUPATION == 4),
+    sum(OCCUPATION == 5),
+    sum(OCCUPATION == 6)
+  ) %>% 
+  knitr::kable(
+    .,
+    caption = "Table 3
+    \n *Participant employment status by gender*",
+    col.names = c(
+      "Gender", 
+      "Current student^a^", 
+      "Employed", 
+      "Unemployed", 
+      "Part-time 
+      \n employment", 
+      "Searching 
+      \n for employment", 
+      "Retired"
+      ),
+    align = "lcccccc"
+    ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  ) %>%
+  footnote(
+    general = "Data presented are after response exclusions.", 
+    general_title = "*Note.*",
+    alphabet = "*'Current student'* refers to participants' status as a university student in general, rather than specifically a student on the 'Quantitative and Qualitative Methods' module at the University of Sussex as these individuals were already excluded from the analysis.", 
+    footnote_as_chunk = TRUE
+  )
+
+############### Figure 1 ###############
+
+# used {r factor extraction, echo = FALSE, results = FALSE} as chunk header
+
+psych::fa.parallel(
+  report_poly_after$rho, 
+  n.obs = nrow(report_data), 
+  fa = "fa",
+  main = "Figure 1: Parallel analysis scree plot"
+)
+
+############### Figure 2 ###############
+
+# used {r factor loading table, echo = FALSE} as chunk header
+
+options(knitr.kable.NA = '--')
+knitr::kable(
+  report_fa_final,
+  caption = "Figure 2
+  \n *Factor loadings after reanalysis exclusions*",
+  align = "lccccccccc",
+  digits = 2
+) %>% 
+kable_classic(
+  html_font = "Times New Roman"
+)
+
+############### Figure 3 ###############
+
+# {r relability analysis plot, echo = FALSE, results = FALSE} as chunk header
+# produces Figure 3 in HTML output, but same code also outputs omega values/g values in console
+
+psych::omega(
+  report_data %>% 
+  dplyr::select(., -c(AGE, GENDER, OCCUPATION, QQM, DSSE.3, DSSE.7, DSSE.11, DSSE.14, DSSE.15, DSSE.16, DSSE.23, SISE, OPEN)),
+  nfactors = 5,
+  fm = "minres",
+  rotate = "oblimin",
+  digits = 5,
+  poly = TRUE,
+  title = "Figure 3: Omega coefficients"
+) 
+
+############### Figure 4 ###############
+
+# used {r convergent and divergent validities, echo = FALSE} as chunk header
+
+# composite scores
+report_comp <- report_data %>% 
+  dplyr::rowwise() %>% 
+  dplyr::summarise(
+    MR1_comp = mean(c(DSSE.9, DSSE.10, DSSE.12, DSSE.13, DSSE.18)),
+    MR2_comp = mean(c(DSSE.17, DSSE.19, DSSE.20, DSSE.21)),
+    MR3_comp = mean(c(DSSE.4, DSSE.5, DSSE.8)),
+    MR4_comp = mean(c(DSSE.22, DSSE.24, DSSE.25)),
+    MR5_comp = mean(c(DSSE.1, DSSE.2, DSSE.6)),
+    SISE = mean(SISE),
+    OPEN = mean(OPEN)
+  )
+
+report_comp %>% 
+  dplyr::select(., MR1_comp, MR2_comp, MR3_comp, MR4_comp, MR5_comp, SISE, OPEN) %>% 
+  correlation::correlation() %>% 
+  summary() %>% 
+  knitr::kable(
+    caption = "Figure 4
+    \n *Correlation matrix for factor composites*",
+    digits = 2
+  ) %>% 
+  kable_classic(
+    html_font = "Times New Roman"
+  )
+##### convergent validity poor for all factors
+##### divergent validity only good for factor 4
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
